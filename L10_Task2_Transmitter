@@ -1,0 +1,27 @@
+#define F_CPU 16000000UL
+#include <avr/io.h>
+
+void UART_init(void) {
+    UBRR0H = 0;
+    UBRR0L = 103;                 // 9600 baud
+    UCSR0B = (1 << TXEN0);        // Enable TX 
+    UCSR0C = (1 << UCSZ01) | (1 << UCSZ00); // 8-bit data
+}
+
+void UART_send(char data) {
+    while (!(UCSR0A & (1 << UDRE0)));  // Wait till transmit buffer is empty
+    UDR0 = data;
+}
+
+int main(void) {
+    UART_init();  // Initialize UART
+
+    while (1) {
+        UART_send('1');  // Send '1' to turn on LED1
+        _delay_ms(1000);  // Wait for 1000ms
+        UART_send('2');  // Send '2' to turn on LED2
+        _delay_ms(1000);  // Wait for 1000 ms
+        UART_send('3');  // Send '3' to turn on LED3
+        _delay_ms(1000);  // Wait for 1000 ms
+    }
+}
