@@ -1,0 +1,55 @@
+uint16_t K[4] = {0x1918, 0x1110, 0x0908, 0x0100};
+
+void speck_round_inverse(uint16_t &x, uint16_t &y, uint16_t k) {
+    y ^= x;
+    y = ((y >> 2) | (y << 14));
+    x ^= k;
+    x -= y;
+    x = ((x << 7) | (x >> 9));
+}
+
+void decrypt_speck(uint16_t &x, uint16_t &y) {
+    uint16_t b = K[1], c = K[2], d = K[3], a = K[0];
+    uint16_t keys[22];
+    uint16_t l_schedule[] = {b, c, d};
+
+    keys[0] = a;
+    for (int i = 0; i < 21; i++) {
+        speck_round(l_schedule[i % 3], a, (uint16_t)i); // key step
+        keys[i+1] = a;                                  // save key
+    } //key is different each round
+
+    for (int i = 21; i >= 0; i--) {
+        speck_round_inverse(x, y, keys[i]); // decrypt round
+    }
+}
+
+void speck_round(uint16_t &x, uint16_t &y, uint16_t k) {
+    x = ((x >> 7) | (x << 9)); // rotate x
+    x += y;                    // add y
+    x ^= k;                    // XOR key
+    y = ((y << 2) | (y >> 14)); // rotate y
+    y ^= x;                     // XOR x
+}
+
+void setup() {
+    Serial.begin(9600);
+    Serial.println("System Ready. Listening..."); // start msg
+}
+
+void loop() {
+    if (Serial.available() >= 4) {
+        uint16_t ct_x = Serial.read() | (Serial.read() << 8); // word x
+        uint16_t ct_y = Serial.read() | (Serial.read() << 8); // word y
+
+        Serial.print("CT: ");
+        Serial.print(ct_x, HEX);
+        Serial.print(" ");
+        Serial.println(ct_y, HEX);
+
+        decrypt_speck(ct_x, ct_y); // decrypt
+
+        Serial.print("PT: ");
+        Serial.println(ct_x); // counter value
+    }
+}
