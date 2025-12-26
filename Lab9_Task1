@@ -1,0 +1,115 @@
+#include <avr/io.h>
+#include <avr/interrupt.h>
+
+// REGISTER MAP
+// D6  = PD6 = Seg A
+// D7  = PD7 = Seg B
+// D8  = PB0 = Seg F
+// D9  = PB1 = Seg G
+// D10 = PB2 = Seg E
+// D11 = PB3 = Seg D
+// D12 = PB4 = Seg C
+// Button = D2 = PD2 = INT0
+
+volatile uint8_t digit = 0;
+volatile uint8_t running = 1;
+
+// Segment states for digits from 0 to 9 in A B C D E F G order
+const uint8_t digitMap[10][7] = {
+  {1,1,1,1,1,1,0}, // 0
+  {0,1,1,0,0,0,0}, // 1
+  {1,1,0,1,1,0,1}, // 2
+  {1,1,1,1,0,0,1}, // 3
+  {0,1,1,0,0,1,1}, // 4
+  {1,0,1,1,0,1,1}, // 5
+  {1,0,1,1,1,1,1}, // 6
+  {1,1,1,0,0,0,0}, // 7
+  {1,1,1,1,1,1,1}, // 8
+  {1,1,1,1,0,1,1}  // 9
+};
+
+
+// DISPLAY FUNCTION (REGISTER LEVEL)
+void displayDigit(uint8_t n)
+{
+  // Clear all segment bits before doing anything
+  PORTD &= ~((1 << PD6) | (1 << PD7));
+  PORTB &= ~((1 << PB0) | (1 << PB1) | (1 << PB2) | (1 << PB3) | (1 << PB4));
+
+  // A → PD6
+  if (digitMap[n][0]) PORTD |= (1 << PD6);
+  // B → PD7
+  if (digitMap[n][1]) PORTD |= (1 << PD7);
+  // C → PB4
+  if (digitMap[n][2]) PORTB |= (1 << PB4);
+  // D → PB3
+  if (digitMap[n][3]) PORTB |= (1 << PB3);
+  // E → PB2
+  if (digitMap[n][4]) PORTB |= (1 << PB2);
+  // F → PB0
+  if (digitMap[n][5]) PORTB |= (1 << PB0);
+  // G → PB1
+  if (digitMap[n][6]) PORTB |= (1 << PB1);
+}
+
+// TIMER1 ISR — 0.5 SECOND
+ISR(TIMER1_COMPA_vect)
+{
+  if (running)
+  {
+    digit++;
+    if (digit > 9) digit = 0;
+    displayDigit(digit);
+  }
+}
+
+// EXT. TRIGGER - BUTTON ISR - PAUSE / RESUME
+ISR(INT0_vect)
+{
+  // debounce
+  for (volatile uint32_t i = 0; i < 50000; i++);
+
+  running = !running;
+
+  if (!running)
+    TIMSK1 &= ~(1 << OCIE1A);   // Stop Timer interrupt
+  else
+    TIMSK1 |= (1 << OCIE1A);   // Start Timer interrupt
+}
+
+
+// MAIN
+int main(void)
+{
+  // SET SEGMENT PINS AS OUTPUTS
+  DDRD |= (1 << PD6) | (1 << PD7);                 // DGT 6, DGT 7
+  DDRB |= (1 << PB0) | (1 << PB1) | (1 << PB2)
+        | (1 << PB3) | (1 << PB4);                 // D8–D12
+
+  // BUTTON INPUT (D2 / INT0)
+  DDRD &= ~(1 << PD2);    // Input
+  PORTD |= (1 << PD2);   // Internal pull-up
+
+  // TIMER1 CONFIG — 0.5 SECONDS
+  TCCR1B = (1 << WGM12) | (1 << CS12);  // CTC mode, prescaler 256
+  OCR1A  = 31249;                       // Sets the time to 0.5 sec
+  TIMSK1 = (1 << OCIE1A);               // Enable Timer1 interrupt
+ 
+  // EXTERNAL INTERRUPT INT0 (D2)
+  EICRA = (1 << ISC01);   // Falling edge
+  EIMSK = (1 << INT0);    // Enable INT0
+
+
+  // INITIAL DISPLAY = 0
+  displayDigit(0);
+
+  // Enable the global interrupts
+  sei();
+
+ 
+  // MAIN LOOP EMPTY
+  while (1)
+  {
+    // Waiting for an event
+  }
+}
