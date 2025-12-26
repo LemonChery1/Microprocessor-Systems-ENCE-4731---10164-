@@ -1,0 +1,25 @@
+const byte SECRET_KEY = 0xAB; 
+
+byte decrypt(byte ciphertext) {
+  byte state = ciphertext ^ 0x55;
+  state = (state >> 3) | (state << 5);
+  byte plaintext = state ^ SECRET_KEY;
+  return plaintext;
+}
+
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Waiting for encrypted data...");
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    byte receivedByte = Serial.read();
+    byte decryptedValue = decrypt(receivedByte);
+    Serial.print("Encrypted: 0x");
+    if(receivedByte < 16) Serial.print("0");
+    Serial.print(receivedByte, HEX);
+    Serial.print(" | Decrypted: ");
+    Serial.println(decryptedValue);
+  }
+}
