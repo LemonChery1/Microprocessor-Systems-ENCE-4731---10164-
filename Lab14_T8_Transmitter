@@ -1,0 +1,34 @@
+// Secret Key
+const byte SECRET_KEY = 0xAB; // Example 8-bit key (10101011)
+
+byte encrypt(byte plaintext) {
+  // XOR with Key
+  byte state = plaintext ^ SECRET_KEY;
+  
+  // Bit Rotation
+  state = (state << 3) | (state >> 5); //Rotate Left by 3 bits
+  
+  //XOR with a constant
+  byte ciphertext = state ^ 0x55; // 01010101
+  
+  return ciphertext;
+}
+
+void setup() {
+  Serial.begin(9600); // Initialize UART
+}
+
+void loop() {
+  // Count from 0 to 255
+  for (int counter = 0; counter <= 255; counter++) {
+    
+    // Encrypt the counter value
+    byte encryptedValue = encrypt((byte)counter);
+    
+    // Send only the encrypted byte over UART
+    Serial.write(encryptedValue);
+    
+    // Wait 100ms seconds as required
+    delay(100); 
+  }
+}
